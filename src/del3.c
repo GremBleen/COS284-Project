@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "dfa.h"
 
-extern bool sameLanguage(DFA *dfa1, DFA *dfa2);
+extern bool sameLanguage(DFA *dfa1, DFA *dfa2); // TODO: IMPLEMENT THIS FUNCTION
 
 float testDeliverable3()
 {
