@@ -33,7 +33,7 @@ void freeErrorReport(ErrorReport *report)
   free(report);
 }
 
-extern DFA *readDfa(const char *filename);
+extern DFA *readDfa(const char *filename); // TODO: IMPLEMENT THIS FUNCTION
 
 void printDfa(DFA *dfa)
 {
