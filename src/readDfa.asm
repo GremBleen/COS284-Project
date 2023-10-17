@@ -44,16 +44,31 @@ getNextNumber:
         cmp al, 10 ; '\n'
         je l1_loop_1_end
         cmp al, '0'
-        jl file_error
+        jge end_if_gNN_1 
+        if_gNN_1:
+            cmp r15, 0
+            je file_error
+            jmp file_error_delete
+        end_if_gNN_1:
         cmp al, '9'
-        jg file_error
+        jle end_if_gNN_2
+        if_gNN_2:
+            cmp r15, 0
+            je file_error
+            jmp file_error_delete
+        end_if_gNN_2:
         inc r8
         jmp l1_loop_1
     l1_loop_1_end:
 
     cmp r8, rcx
+    jne end_if_gNN_3
 
-    je file_error
+    if_gNN_3:
+        cmp r15, 0
+        je file_error
+        jmp file_error_delete
+    end_if_gNN_3:
 
     ; saving values before function call
     mov [rsp + rdi_backup], rdi
@@ -151,27 +166,28 @@ readDfa:
     ;Input registers:
     ; rdi = filename
 
-    extern open, lseek, read, close
+    extern open, lseek, read, close, initDfa
     push rbp      ; Save the base pointer
     mov  rbp, rsp ; Set the base pointer to the stack pointer
     sub rsp, 80
 
     r12_data equ 0
-    states equ 8
-    transitions equ 16
-    numStates equ 24
-    numTransitions equ 28
-    startState equ 32
-    filedata equ 40
-    r13_data equ 48
-    rcx_backup1 equ 56
-    rsi_backup1 equ 64
-    rdi_backup1 equ 72
+    numStates equ 8
+    numTransitions equ 12
+    filedata equ 16
+    r13_data equ 24
+    rcx_backup1 equ 32
+    rsi_backup1 equ 48
+    rdi_backup1 equ 56
+    dfa equ 64
+    r15_data equ 72
 
     ; saving the value stored in r12
     mov [rsp + r12_data], r12
     mov [rsp + r13_data], r13
+    mov [rsp + r15_data], r15
     xor r12, r12
+    xor r15, r15
 
 ;=============================================
 
@@ -269,7 +285,7 @@ readDfa:
 
                 mov rdx, [rsp + filedata]
                 call getNextNumber
-                mov dword[rsp + numStates], eax
+                mov [rsp + numStates], eax
                 mov al, byte[rdi + rcx]
                 cmp al, 10 ; '\n'
                 je file_error
@@ -277,14 +293,30 @@ readDfa:
                 
                 mov rdx, [rsp + filedata]
                 call getNextNumber
-                mov dword[rsp + numTransitions], eax
+                mov [rsp + numTransitions], eax
                 mov al, byte[rdi + rcx]
                 cmp al, ','
                 je file_error
                 inc rcx
 
-                mov eax, dword[rsp + numStates]
-                mov eax, dword[rsp + numTransitions]
+                mov [rsp + rcx_backup1], rcx
+                mov [rsp + rsi_backup1], rsi
+                mov [rsp + rdi_backup1], rdi
+
+                xor rdi, rdi
+                xor rsi, rsi
+
+                mov edi, [rsp + numStates]
+                mov esi, [rsp + numTransitions]
+                call initDfa
+                mov [rsp + dfa], rax
+
+                inc r15 ; setting r15 to 1 indicating that if the process is aborted, need to delete dfa
+                
+                ; resetting values
+                mov rcx, [rsp + rcx_backup1]
+                mov rsi, [rsp + rsi_backup1]
+                mov rdi, [rsp + rdi_backup1]
 
                 inc rbx ; increment row
                 jmp end_switch
@@ -297,22 +329,7 @@ readDfa:
                 mov eax, [rsp + numStates]
                 mov r13, rax
                 cmp r12, r13
-                jg file_error
-
-                ; need to backup non-callee saved registers
-                mov [rsp + rcx_backup1], rcx
-                mov [rsp + rsi_backup1], rsi
-                mov [rsp + rdi_backup1], rdi
-
-                mov edi, [rsp + numStates]
-                imul rdi, 4 ; integer = 4 bytes
-                call malloc
-                mov [rsp + states], rax
-                
-                ; resetting values
-                mov rcx, [rsp + rcx_backup1]
-                mov rsi, [rsp + rsi_backup1]
-                mov rdi, [rsp + rdi_backup1]
+                jg file_error_delete
 
                 l2_loop_1:
                     cmp r12, r13
@@ -320,25 +337,28 @@ readDfa:
                     mov rdx, [rsp + filedata]
                     call getNextNumber
 
-                    mov r8, [rsp + states]
-                    mov [r8 + r12*4], eax
+                    mov r8, [rsp + dfa]
+                    mov r9, [r8 + DFA.states]
+                    xor r10, r10
+                    imul r10, r12, State_size
+                    mov [r9 + r10 + State.id], eax
 
                     inc r12
                     mov al, byte[rdi + rcx]
                     cmp al, 10 ; '\n'
                     jne end_if_1
-                    if:
+                    if_1:
                         cmp r12, r13
-                        jne file_error
+                        jne file_error_delete
                         jmp l2_loop_1
                     end_if_1:
-                    inc rcx
+                    inc rcx ; NOTE: Possible issue where ',\n' does not error
                     jmp l2_loop_1
                 l2_loop_1_end:
 
                 mov al, byte[rdi + rcx]
                 cmp al, 10 ; '\n'
-                jne file_error
+                jne file_error_delete
 
                 inc rcx
 
@@ -348,6 +368,73 @@ readDfa:
             ; case l3 is for the third line (Accepting states)
             l3:
                 
+                ; loop through until '\n'
+                
+                xor r12, r12
+                xor r13, r13
+
+                mov rdx, [rsp + filedata]
+                mov r8, rcx
+                xor r9, r9
+
+                l3_loop_1:
+                    mov al, [rdi + r8]
+                    cmp al, ','
+                    jne end_if_2
+                    if_2:
+                        cmp r9b, ','
+                        je file_error_delete
+                        inc r12
+                        inc r8
+                        mov r9b, al
+                        jmp l3_loop_1
+                    end_if_2
+                    cmp al, 10 ; '\n'
+                    jne end_if_3
+                    if_3:
+                        cmp r9b, ','
+                        je file_error_delete
+                        inc r12
+                        inc r8
+                        mov r9b, al
+                        jmp l3_loop_1_end
+                    end_if_3:
+                    cmp al, '0'
+                    jl file_error_delete
+                    cmp al, '9'
+                    jg file_error_delete
+                    inc r8
+                    mov r9b, al 
+                    jmp l3_loop_1
+                l3_loop_1_end:
+
+                cmp r12, 0
+                je file_error_delete
+
+                l3_loop_2:
+                    cmp r13, r12
+                    jge l3_loop_2_end
+
+                    mov rdx, [rsp + filedata]
+                    call getNextNumber
+
+                    ; TODO:
+                    ; find state with matching id in Dfa
+                    ; change accepting to true
+
+                    mov al, [rdi + rcx]
+                    cmp al, ','
+                    jne end_if_4
+                    if_4:
+                        inc rcx
+                    end_if_4:
+                    inc r13
+                    jmp l3_loop_2
+                l3_loop_2_end:
+
+                mov al, byte[rdi + rcx]
+                cmp al, 10 ; '\n'
+                jne file_error_delete
 
                 inc rbx ; increment row
                 jmp end_switch
@@ -364,22 +451,24 @@ readDfa:
 
         _endwhile:
 
-        ; setting startState to 0
-        mov rax, 0
-        mov [rsp + startState], rax
-
-        ; combining everything into Dfa:
-
-        ; use initDfa
-
         ; cleanup - free all malloc'd data
+
+        mov rdi, [rsp + filedata]
+        call free
 
         ; closing the file
         mov edi, [fd]
         call close
         jmp end
 
+    file_error_delete:
+        mov rdi, [rsp + dfa]
+        call free
+
     file_error:
+        mov rdi, [rsp + filedata]
+        call free
+
         mov edi, [fd]
         call close
         
@@ -395,5 +484,6 @@ readDfa:
     end:
     mov r12, [rsp + r12_data]
     mov r13, [rsp + r13_data]
+    mov r15, [rsp + r15_data]
     leave ; Restore the base pointer
     ret   ; Return
