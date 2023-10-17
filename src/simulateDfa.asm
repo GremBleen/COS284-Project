@@ -7,6 +7,29 @@ section .data
     inputString:  dq 0
     currentState: dq 0
     sizeOfString: dd 0
+    currentChar: db 0
+
+;     struc State
+;     .id: resd 1
+;     .isAccepting: resb 1
+;     align 4
+;   endstruc
+
+;   struc Transition
+;     .from resd 1
+;     .to resd 1
+;     .symbol resb 1
+;     align 4
+;   endstruc
+
+;   struc DFA
+;     .states resq 1
+;     .transitions resq 1
+;     .numStates resd 1
+;     .numTransitions resd 1
+;     .startState resd 1
+;     align 8
+;   endstruc
 
 section .text
     ; bool simulateDfa(DFA *dfa , const char *inputString)
@@ -22,7 +45,6 @@ simulateDfa:
     push r13
     push r14
     push r15
-
 ;=============================================
     ; Structure I will implement:
     ; State* currentState = dfa->states[startState];
@@ -46,7 +68,8 @@ simulateDfa:
     mov [dfa], rdi              ; Store the dfa
     mov [inputString], rsi      ; Store the inputString
     lea rax, [dfa + DFA.states] ; Store the states array
-    lea [currentState], [rax + dfa.startState] ; currentState = dfa->states[startState]
+    lea rdx, [rax + DFA.startState * State_size]
+    mov [currentState], rdx ; currentState = dfa->states[startState]
 
     ; Check if numStates is 0 or numTransitions is 0
     mov eax, [dfa + DFA.numStates] ; rax = dfa->numStates
@@ -63,7 +86,7 @@ simulateDfa:
 
     ; for(int i = 0; i < sizeOfString; i++)
     xor rcx, rcx ; i = 0
-    cmp rcx, [sizeOfString] ; i < sizeOfString
+    cmp rcx, sizeOfString ; i < sizeOfString
     jge .endLoop1
     .loop1:
         ; char currentChar = inputString[i];
@@ -78,26 +101,29 @@ simulateDfa:
         .loop2:
             ; if(currentState->id == dfa->Transitions[j]->from && currentChar == dfa->Transitions[j]->symbol)
             lea r13, [dfa + DFA.transitions] ; Store Transitions array
-            lea r14, [r13 + r12 * 8] ; Store transitions[j]
-            cmp [currentState + State.id], [r14 + Transition.from] ; currentState->id == dfa->Transitions[j]->from
+            lea r14, [r13 + r12 * Transition_size] ; Store transitions[j]
+            mov edx, [r14 + Transition.from] ; edx = dfa->Transitions[j]->from
+            cmp [currentState + State.id], edx ; currentState->id == dfa->Transitions[j]->from
             jne .failTransition ; if not equal, jump to failTransition
-            cmp rax, [r14 + Transition.symbol] ; currentChar == dfa->Transitions[j]->symbol
+            mov al, [currentChar] ; al = currentChar
+            cmp al, [r14 + Transition.symbol] ; currentChar == dfa->Transitions[j]->symbol
             jne .failTransition ; if not equal, jump to failTransition
 
             ; currentState = dfa->States[dfa->Transitions[j]->to]
             mov edx, [r14 + Transition.to] ; edx = dfa->Transitions[j]->to
             lea r15, [dfa + DFA.states] ; Store States array
-            lea [currentState], [r15 + rdx * 8] ; currentState = dfa->States[dfa->Transitions[j]->to]
+            lea rax, [r15 + rdx * State_size] ; rax = dfa->States[dfa->Transitions[j]->to]
+            mov [currentState], rax ; currentState = dfa->States[dfa->Transitions[j]->to]
             jmp .endLoop2 ; break
 
             .failTransition:
             inc r12 ; j++
             cmp r12, [dfa + DFA.numTransitions] ; j < dfa->numTransitions
-            jl .loop3
+            jl .loop2
         .endLoop2:
     
         inc rcx ; i++
-        cmp rcx, [sizeOfString] ; i < sizeOfString
+        cmp rcx, sizeOfString ; i < sizeOfString
         jl .loop1
     .endLoop1:
 
@@ -108,7 +134,7 @@ simulateDfa:
     .return:
     mov eax, [currentState + State.isAccepting] ; return currentState->isAccepting
 
-    end:
+    .end:
 ;=============================================
     pop r15         ; Restore the callee saved registers
     pop r14 
