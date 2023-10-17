@@ -6,17 +6,21 @@ section .data
     fsize: dd 0
 
 section .text
+
+getNextNumber:
+    ; INPUT:
+    ; rdi = 
+
 readDfa:
     ; DFA* readDfa(const char *filename)
 
     ;Input registers:
     ; rdi = filename
-    ; rsi = dfa
 
-    extern open, lseek, malloc, read, close
+    extern open, lseek, malloc, free, read, close
     push rbp      ; Save the base pointer
     mov  rbp, rsp ; Set the base pointer to the stack pointer
-    sub rsp, 48
+    sub rsp, 64
 
     r12_data equ 0
     states equ 8
@@ -25,10 +29,15 @@ readDfa:
     numTransitions equ 24
     startState equ 28
     filedata equ 32
+    temp equ 40
+    r13_data equ 48
 
     ; saving the value stored in r12
-    mov [rsp+r12_data], r12
+    mov [rsp + r12_data], r12
+    mov [rsp + r13_data], r13
     xor r12, r12
+
+;=============================================
 
     ; storing the filename in r12 (callee saved register)
     mov r12, rdi
@@ -98,40 +107,166 @@ readDfa:
         xor rcx, rcx ; rcx -> counter
         mov rsi, [fsize] ; rsi -> bitsize of file
         mov rdi, [rsp+filedata] ; rdi -> pointer to the first bit in the file
+        xor rbx, rbx ; rbx -> row counter
 
         while:
             cmp rcx, rsi
             jge _endwhile
-            mov al, [rdi+rcx] ; essentially getting the the ith bit of the file
+            ; mov al, [rdi+rcx] ; essentially getting the the ith bit of the file
             ; TODO: populate and create dfa using the data in here
-            inc rcx
+
+            mov r8, rbx
+            cmp r8, 0
+            je l1
+
+            dec r8
+            cmp r8, 0
+            je l2
+
+            dec r8
+            cmp r8, 0
+            je l3
+
+            jmp ln
+
+            ; case l1 is for the first line (Number of states and Number of transitions)
+            l1:
+                ; This loop is used to dertermine how many characters makes up the number of states
+                xor r8, r8 ; clearing r8
+                mov r8, rcx ; setting r8 to rcx
+  
+                l1_loop_1:
+                    mov al, [rdi+r8]
+                    cmp al, ','
+                    je l1_loop_1_end
+                    cmp al, '0'
+                    jl file_error
+                    cmp al, '9'
+                    jg file_error
+                    inc r8
+                    jmp l1_loop_1
+                l1_loop_1_end:
+
+                cmp r8, rcx
+
+                je file_error
+
+                ; moving the value of rcx into a callee saved register
+                mov r12, rcx
+
+                ; moving the value of r8 into a callee saved register
+                mov r13, r8
+
+                ; calling malloc
+                mov rdi, r8
+                ; Allocating memory for each byte
+                call malloc
+                mov [rsp+temp], rax
+
+                mov rdi, [rsp + filedata] ; resetting rdi to hold the file
+                mov rcx, r12 ; loading the value stored in r12 back into rcx
+
+                ; loop through it until ',' again, adding each digit to the array
+                
+                xor r9, r9 ; Setting r9 to 0
+                
+                l1_loop_2:
+                    mov al, [rdi + rcx]
+                    cmp al, ','
+                    je l1_loop_2_end
+                    mov r10, [rsp + temp]
+                    mov byte[r10 + r9], al
+                    inc r9
+                    inc rcx
+                    jmp l1_loop_2
+                l1_loop_2_end:
+                
+                ; increment rcx to get past comma
+                inc rcx
+
+                ; loop through each of the digits, subtracting '0', multiply each by 10^n and add
+                xor r8, r8 ; clear r8
+                dec r13 ; decrement r13 so that it aligns with indices
+                xor r11, r11 ; clearing r11 -> counter
+                xor r9, r9
+                mov r9, [rsp + temp]
+
+                xor rax, rax ; clear rax - will be used as accumulator
+                
+                l1_loop_3:
+                    cmp r13, 0
+                    jl l1_loop_3_end
+                    mov r8b, byte[r9 + r13]
+                    sub r8, '0'
+                    mov r10, 0
+                    l1_loop_3_1:
+                        cmp r10, r11
+                        jge l1_loop_3_1_end
+                        imul r8, 10
+                        inc r10
+                        jmp l1_loop_3_1
+                    l1_loop_3_1_end:
+                    add rax, r8 ; add r8 to rax
+                    inc r11
+                    dec r13
+                    jmp l1_loop_3
+                l1_loop_3_end:
+
+                mov [rsp + numStates], rax
+
+                ; free the memory allocated
+                mov rdi, [rsp+temp]
+                call free
+
+                inc rbx ; increment row
+                jmp end_switch
+
+            ; case l2 is for the second line (States)
+            l2:
+                ; loop for line 2 while rcx != '\n'
+
+                inc rbx ; increment row
+                jmp end_switch
+            
+            ; case l3 is for the third line (Accepting states)
+            l3:
+                ; loop for line 3 while rcx != '\n'
+
+                inc rbx ; increment row
+                jmp end_switch
+
+            ; case ln is for the nth line (Transitions)
+            ln:
+                ; loop for line n while rcx != '\n'
+
+                inc rbx ; increment row
+
+            end_switch:
+            
             jmp while
 
         _endwhile:
-        
-
-        ; Getting the first line (states and transitions)
-
-
-
-        ; Getting the second line (ID's of states)
-
-
-        ; Getting the third line (accepting states)
-
-
-        ; Loop through the next lines and populate transitions
 
         ; closing the file
         mov edi, [fd]
         call close
         jmp end
 
+    file_error:
+        mov edi, [fd]
+        call close
+        
+        mov rax, 0
+
+        jmp end
+
     file_not_found:
         mov rax, 0 ; set the return to 0 -> null
 
-    end:
+;=============================================
 
-    mov r12, [rsp+r12_data]
+    end:
+    mov r12, [rsp + r12_data]
+    mov r13, [rsp + r13_data]
     leave ; Restore the base pointer
     ret   ; Return
