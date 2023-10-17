@@ -47,6 +47,14 @@ simulateDfa:
     mov [inputString], rsi      ; Store the inputString
     lea rax, [dfa + DFA.states] ; Store the states array
     lea [currentState], [rax + dfa.startState] ; currentState = dfa->states[startState]
+
+    ; Check if numStates is 0 or numTransitions is 0
+    mov eax, [dfa + DFA.numStates] ; rax = dfa->numStates
+    cmp eax, 0 ; dfa->numStates == 0
+    je .returnFalse ; if equal, jump to returnFalse
+    mov eax, [dfa + DFA.numTransitions] ; rax = dfa->numTransitions
+    cmp eax, 0 ; dfa->numTransitions == 0
+    je .returnFalse ; if equal, jump to returnFalse 
     
     lea rdi, [inputString]      ; rdi = inputString
     call strlen                 ; call strlen
@@ -93,8 +101,14 @@ simulateDfa:
         jl .loop1
     .endLoop1:
 
+    .returnFalse:
+    xor eax, eax ; rax = 0
+    jmp .end
+
+    .return:
     mov eax, [currentState + State.isAccepting] ; return currentState->isAccepting
 
+    end:
 ;=============================================
     pop r15         ; Restore the callee saved registers
     pop r14 
