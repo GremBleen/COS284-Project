@@ -369,8 +369,8 @@ readDfa:
                 
                 ; loop through until '\n'
                 
-                xor r12, r12
-                xor r13, r13
+                xor r12, r12 ; Counts number of Accepting
+                xor r13, r13 ; counter for second loop
 
                 mov rdx, [rsp + filedata]
                 mov r8, rcx
@@ -410,6 +410,9 @@ readDfa:
                 cmp r12, 0
                 je file_error_delete
 
+                cmp r12d, dword[rsp + numStates]
+                jg file_error_delete
+
                 xor r14, r14
 
                 l3_loop_2:
@@ -425,22 +428,23 @@ readDfa:
                     xor r11, r11 ; counter
                     
                     l3_loop_2_1:
-                        cmp r11, [rsp + numStates]
+                        cmp r11d, dword[rsp + numStates]
                         jge file_error_delete ; if the state was not found in dfa, jump to error
 
                         imul r10, r11, State_size
 
-                        mov r14, [r9 + r10 + State.id]
-                        cmp rax, r14
+                        mov r14d, dword[r9 + r10 + State.id]
+                        cmp eax, r14d
                         jne end_found
 
                         found:
                             mov r14, 1
-                            mov [r9 + r10 + State.isAccepting], r14
+                            mov byte[r9 + r10 + State.isAccepting], r14b
                             jmp l3_loop_2_1_end
                         end_found:
 
                         inc r11
+                        jmp l3_loop_2_1
                     l3_loop_2_1_end:
 
                     mov al, [rdi + rcx]
