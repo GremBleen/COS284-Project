@@ -37,9 +37,9 @@ struct combDfa
 
 bool sameLanguage(DFA *dfa1 , DFA *dfa2)
 {
-    combDFA* = makeDFA(dfa1,dfa2);
+    DFA* combDFA = makeDFA(dfa1,dfa2);
 
-
+    // TODO: do the iteration;
 }
 
 combDFA* makeDFA(dfa1, dfa2)
@@ -49,10 +49,13 @@ combDFA* makeDFA(dfa1, dfa2)
     combDFA->numStates = newNumStates;
 
     int count = 0;
+    int transCount = 0;
     for(int i = 0; i < dfa1->numStates; i++)
     {
+        State* s1 = dfa1->states[i];
         for(int j = 0; j < dfa2->numStates; j++)
         {
+            State* s2 = dfa2->states[j];
             combDfa->states[count]->id = count;
             if((dfa1->states[i]->isAccepting && !dfa2->states[j]->isAccepting) || (!dfa1->states[i]->isAccepting && dfa2->states[j]->isAccepting))
             {
@@ -64,18 +67,31 @@ combDFA* makeDFA(dfa1, dfa2)
             }
             count++;
 
-            for(int i = 0; i < dfa1->numTransitions; i++)
+            for(int k = 0; k < dfa1->numTransitions; k++)
             {
-                Transition* t1 = dfa1->transitions[i];
-                for(int j = 0; j < dfa2->numTransitions; i++)
+                Transition* t1 = dfa1->transitions[k];
+                for(int l = 0; l < dfa2->numTransitions; l++)
                 {
-                    Transition* t2 = dfa2->transitions[j];
-                    if()
+                    Transition* t2 = dfa2->transitions[l];
+                    if(t1->from == state1->id && t2->from == state2->id)
+                    {
+                        if(t1->symbol == t2->symbol)
+                        {
+                            combDfa->transitions[transCount]->from = count;
+                            combDfa->transitions[transCount]->to = (i * dfa2->numStates) + j ;
+                            combDfa->transitions[transCount]->symbol = t1->symbol;
+                            transCount++;
+                        }
+                    }
                 }
             }
         }
     }
 
+    combDFA->numStates = count + 1;
+    combDFA->numTransitions = transCount + 1;
+    combDFA->startState = 0;
+    
     return combDFA;
 }
 
