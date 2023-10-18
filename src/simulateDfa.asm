@@ -1,52 +1,13 @@
 %include "constants.inc" ; Includes the constants.inc file which contains the defn for structs
+global simulateDfa
 extern strlen
-global  simulateDfa
 
 section .data
-    dfa:          dq 0
-    inputString:  dq 0
-    currentState: dq 0
-    sizeOfString: dd 0
-    currentChar: db 0
-
-;     struc State
-;     .id: resd 1
-;     .isAccepting: resb 1
-;     align 4
-;   endstruc
-
-;   struc Transition
-;     .from resd 1
-;     .to resd 1
-;     .symbol resb 1
-;     align 4
-;   endstruc
-
-;   struc DFA
-;     .states resq 1
-;     .transitions resq 1
-;     .numStates resd 1
-;     .numTransitions resd 1
-;     .startState resd 1
-;     align 8
-;   endstruc
+    sizeOfString dd 0
+    currentChar db 0
 
 section .text
     ; bool simulateDfa(DFA *dfa , const char *inputString)
-
-    ; Input registers:
-    ; rdi = dfa
-    ; rsi = inputString
-    
-simulateDfa:
-    push rbp      ; Save the base pointer
-    mov  rbp, rsp ; Set the base pointer to the stack pointer
-    push r12      ; Save the callee saved registers
-    push r13
-    push r14
-    push r15
-;=============================================
-    ; Structure I will implement:
     ; State* currentState = dfa->states[startState];
     ; int sizeOfString = strlen(inputString);
 
@@ -61,84 +22,130 @@ simulateDfa:
     ;             break;
     ;         }
     ;     }
-    ;     return currentState->isAccepting;
+    ;    return currentState->isAccepting;
     ; } 
 
-    ; Storing Variables:
-    mov [dfa], rdi              ; Store the dfa
-    mov [inputString], rsi      ; Store the inputString
-    lea rax, [dfa + DFA.states] ; Store the states array
-    lea rdx, [rax + DFA.startState * State_size]
-    mov [currentState], rdx ; currentState = dfa->states[startState]
+    ; Input registers:
+    ; rdi = dfa
+    ; rsi = inputString
+
+simulateDfa:
+    push rbp ; Save the base pointer
+    mov rbp, rsp ; Set the base pointer to the stack pointer
+    push r12
+    push r13
+    push r14
+    xor r12, r12 ; r12 = 0
+    xor r13, r13 ; r13 = 0
+    xor r14, r14 ; r14 = 0
+    
+    sub rsp, 64
+
+    .dfa equ 0
+    .inputString equ 8
+    .currentState equ 16
+;=============================================
+    ; r12 = dfa
+    ; r13 = inputString
+    ; r14 = currentState
+
+    ; Storing variables:
+    mov [rsp + .dfa], rdi
+    mov [rsp + .inputString], rsi
+    mov rax, [rsp + .dfa]
+    mov r14, [rax + DFA.states]
+    mov [rsp + .currentState], r14
 
     ; Check if numStates is 0 or numTransitions is 0
-    mov eax, [dfa + DFA.numStates] ; rax = dfa->numStates
-    cmp eax, 0 ; dfa->numStates == 0
-    je .returnFalse ; if equal, jump to returnFalse
-    mov eax, [dfa + DFA.numTransitions] ; rax = dfa->numTransitions
-    cmp eax, 0 ; dfa->numTransitions == 0
-    je .returnFalse ; if equal, jump to returnFalse 
-    
-    lea rdi, [inputString]      ; rdi = inputString
-    call strlen                 ; call strlen
-    mov [sizeOfString], rax     ; sizeOfString = strlen(inputString)
-    lea r15, [dfa + DFA.states] ; Store States array
+    mov r12, [rsp + .dfa]
+    mov eax, [r12 + DFA.numStates]
+    cmp eax, 0
+    je returnFalse
+    mov eax, [r12 + DFA.numTransitions]
+    cmp eax, 0
+    je returnFalse
+
+    ; Determine length of inputString
+    mov rdi, [rsp + .inputString]
+    call strlen
+    mov [sizeOfString], eax
 
     ; for(int i = 0; i < sizeOfString; i++)
-    xor rcx, rcx ; i = 0
-    cmp rcx, sizeOfString ; i < sizeOfString
-    jge .endLoop1
-    .loop1:
+    mov rax, [rsp + .dfa] ; rax = dfa
+    mov r12, [rax + DFA.states] ; r12 = dfa->states
+
+    xor ecx, ecx ; ecx = 0
+    cmp ecx, [sizeOfString] ; i < sizeOfString
+    jge endLoop1
+    
+    loop1:
         ; char currentChar = inputString[i];
-        xor eax, eax ; rax = 0
-        mov al, [inputString + rcx] ; rax = currentChar
-        mov [currentChar], al
+        xor eax, eax ; eax = 0
+        mov r13, [rsp + simulateDfa.inputString] ; r13 = inputString
+        mov al, [r13 + rcx] ; al = inputString[i]
+        mov [currentChar], al ; currentChar = inputString[i]
 
         ; for(int j = 0; j < dfa->numTransitions; j++)
-        xor r12, r12 ; j = 0
-        cmp r12, [dfa + DFA.numTransitions] ; j < dfa->numTransitions
-        jge .endLoop2
-        .loop2:
-            ; if(currentState->id == dfa->Transitions[j]->from && currentChar == dfa->Transitions[j]->symbol)
-            lea r13, [dfa + DFA.transitions] ; Store Transitions array
-            lea r14, [r13 + r12 * Transition_size] ; Store transitions[j]
-            mov edx, [r14 + Transition.from] ; edx = dfa->Transitions[j]->from
-            cmp [currentState + State.id], edx ; currentState->id == dfa->Transitions[j]->from
-            jne .failTransition ; if not equal, jump to failTransition
-            mov al, [currentChar] ; al = currentChar
-            cmp al, [r14 + Transition.symbol] ; currentChar == dfa->Transitions[j]->symbol
-            jne .failTransition ; if not equal, jump to failTransition
+        xor ebx, ebx ; ebx = 0
+        mov r12, [rsp + simulateDfa.dfa] ; r12 = dfa
+        cmp ebx, [r12 + DFA.numTransitions] ; j < dfa->numTransitions
+        jge endLoop2
 
-            ; currentState = dfa->States[dfa->Transitions[j]->to]
-            mov edx, [r14 + Transition.to] ; edx = dfa->Transitions[j]->to
-            lea r15, [dfa + DFA.states] ; Store States array
-            lea rax, [r15 + rdx * State_size] ; rax = dfa->States[dfa->Transitions[j]->to]
-            mov [currentState], rax ; currentState = dfa->States[dfa->Transitions[j]->to]
-            jmp .endLoop2 ; break
+        loop2:
+            ; if(currentState->id == dfa->Transitions[j]->from && currentChar == dfa->Transitions[j]->symbol)
+            mov rax, [rsp + simulateDfa.dfa]
+            mov r12, [rax + DFA.transitions] ; r12 = dfa->transitions
+
+            xor edx, edx ; edx = 0
+            imul edx, ebx, Transition_size ; edx = j * sizeof(Transition)
+            lea r8, [r12 + rdx] ; r8 = dfa->transitions[j]
+
+            mov edx, [r8 + Transition.from] ; edx = dfa->transitions[j]->from
+            mov r14, [rsp + simulateDfa.currentState] ; r13 = currentState
+            mov eax, [r14 + State.id] ; eax = currentState->id
+            cmp eax, edx ; currentState->id == dfa->transitions[j]->from
+            jne .failTransition
+            
+            xor eax, eax ; eax = 0
+            mov al, [r8 + Transition.symbol] ; dl = dfa->transitions[j]->symbol
+            cmp al, [currentChar] ; currentChar == dfa->transitions[j]->symbol
+            jne .failTransition
+
+            ; currentState = dfa->States[dfa->Transitions[j]->to];
+            mov rax, [rsp + simulateDfa.dfa]
+            mov r12, [rax + DFA.states] ; r12 = dfa->states
+            mov edx, [r8 + Transition.to] ; edx = dfa->transitions[j]->to
+            lea r14, [r12 + rdx * State_size] ; rax = dfa->states[dfa->transitions[j]->to]
+            mov [rsp + simulateDfa.currentState], r14 ; currentState = dfa->states[dfa->transitions[j]->to]
+            jmp endLoop2 ; break
 
             .failTransition:
-            inc r12 ; j++
-            cmp r12, [dfa + DFA.numTransitions] ; j < dfa->numTransitions
-            jl .loop2
-        .endLoop2:
+            inc ebx ; j++
+            mov r12, [rsp + simulateDfa.dfa]
+            cmp ebx, [r12 + DFA.numTransitions] ; j < dfa->numTransitions
+            jl loop2
+        endLoop2:
+
+        inc ecx ; i++
+        cmp ecx, [sizeOfString] ; i < sizeOfString
+        jl loop1
+    endLoop1:
+    jmp return
     
-        inc rcx ; i++
-        cmp rcx, sizeOfString ; i < sizeOfString
-        jl .loop1
-    .endLoop1:
+    returnFalse:
+        xor eax, eax ; return 0
+        jmp endSimulateDfa
 
-    .returnFalse:
-    xor eax, eax ; rax = 0
-    jmp .end
+    return:
+        mov r14, [rsp + simulateDfa.currentState]
+        mov eax, [r14 + State.isAccepting] ; return currentState->isAccepting
 
-    .return:
-    mov eax, [currentState + State.isAccepting] ; return currentState->isAccepting
-
-    .end:
+    endSimulateDfa:
+    
 ;=============================================
-    pop r15         ; Restore the callee saved registers
-    pop r14 
+    pop r15 ; Restore the callee saved registers
+    pop r14
     pop r13
     pop r12
     leave ; Restore the base pointer
-    ret   ; Return
+    ret ; Return

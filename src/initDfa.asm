@@ -2,6 +2,8 @@
 global initDfa
 extern malloc
 
+section .data
+
 section .text
 ;
 ; DFA *init_dfa(int numStates, int numTransitions)
