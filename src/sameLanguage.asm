@@ -16,39 +16,68 @@ sameLanguage:
 
 ;=============================================
 ; Code we will implement:
-    ; char* getAlphabet(dfa){
-    ;     char* input = new char*[1];
-    ;     int size = 1;
 
-    ;     for(int i =0; i < dfa->numTransitions; i++)
-    ;     {
-    ;         char symbol = dfa->transitions[i]->symbol;
+struct combState
+{
+    int state1;
+    int state2;
+    bool isAccepting;
+}
 
-    ;         for(int j = 0; j < size; j++)
-    ;         {
-    ;             if(symbol == input[j])
-    ;             {
-    ;                 break;
-    ;             }
-    ;             else if(j == size - 1)
-    ;             {
-    ;                 char* new = new char*[size + 1];
-    ;                 for(int k = 0; k < size; k++)
-    ;                 {
-    ;                     new[k] = input[k];
-    ;                 }
-    ;                 new[size] = symbol;
-    ;                 delete input;
-    ;                 input = new;
-    ;                 size++;
-    ;                 break;
-    ;             }
-    ;         }
-    ;     }
-    ;     return input;
-    ; }
+struct combDfa
+{
+    combState* states;
+    Transition* transitionsDFA1;
+    Transition* transitionsDFA2;
+    int numStates;
+    int numTransitionsDFA1;
+    int numTransitionsDFA2;
+    int startState;
+}
+
+bool sameLanguage(DFA *dfa1 , DFA *dfa2)
+{
+    combDFA* = makeDFA(dfa1,dfa2);
 
 
+}
+
+combDFA* makeDFA(dfa1, dfa2)
+{
+    int newNumStates = dfa1->numStates * dfa2->numStates;
+    DFA *combDfa = malloc(sizeof(DFA));
+    combDFA->numStates = newNumStates;
+
+    int count = 0;
+    for(int i = 0; i < dfa1->numStates; i++)
+    {
+        for(int j = 0; j < dfa2->numStates; j++)
+        {
+            combDfa->states[count]->id = count;
+            if((dfa1->states[i]->isAccepting && !dfa2->states[j]->isAccepting) || (!dfa1->states[i]->isAccepting && dfa2->states[j]->isAccepting))
+            {
+                combDfa->states[count]->isAccepting = true;
+            }
+            else
+            {
+                combDfa->states[count]->isAccepting = false;
+            }
+            count++;
+
+            for(int i = 0; i < dfa1->numTransitions; i++)
+            {
+                Transition* t1 = dfa1->transitions[i];
+                for(int j = 0; j < dfa2->numTransitions; i++)
+                {
+                    Transition* t2 = dfa2->transitions[j];
+                    if()
+                }
+            }
+        }
+    }
+
+    return combDFA;
+}
 
 ;=============================================
     leave ; Restore the base pointer
