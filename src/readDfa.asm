@@ -169,7 +169,7 @@ readDfa:
     extern open, lseek, read, close, initDfa
     push rbp      ; Save the base pointer
     mov  rbp, rsp ; Set the base pointer to the stack pointer
-    sub rsp, 80
+    sub rsp, 96
 
     r12_data equ 0
     numStates equ 8
@@ -181,11 +181,13 @@ readDfa:
     rdi_backup1 equ 56
     dfa equ 64
     r15_data equ 72
+    r14_data equ 80
 
     ; saving the value stored in r12
     mov [rsp + r12_data], r12
     mov [rsp + r13_data], r13
     mov [rsp + r15_data], r15
+    mov [rsp + r14_data], r14
     xor r12, r12
     xor r15, r15
 
@@ -266,16 +268,13 @@ readDfa:
             cmp rcx, rsi
             jge _endwhile
 
-            mov r8, rbx
-            cmp r8, 0
+            cmp rbx, 0
             je l1
 
-            dec r8
-            cmp r8, 0
+            cmp rbx, 1
             je l2
 
-            dec r8
-            cmp r8, 0
+            cmp rbx, 2
             je l3
 
             jmp ln
@@ -411,6 +410,8 @@ readDfa:
                 cmp r12, 0
                 je file_error_delete
 
+                xor r14, r14
+
                 l3_loop_2:
                     cmp r13, r12
                     jge l3_loop_2_end
@@ -418,9 +419,29 @@ readDfa:
                     mov rdx, [rsp + filedata]
                     call getNextNumber
 
-                    ; TODO:
-                    ; find state with matching id in Dfa
-                    ; change accepting to true
+                    mov r8, [rsp + dfa]
+                    mov r9, [r8 + DFA.states]
+                    xor r10, r10
+                    xor r11, r11 ; counter
+                    
+                    l3_loop_2_1:
+                        cmp r11, [rsp + numStates]
+                        jge file_error_delete ; if the state was not found in dfa, jump to error
+
+                        imul r10, r11, State_size
+
+                        mov r14, [r9 + r10 + State.id]
+                        cmp rax, r14
+                        jne end_found
+
+                        found:
+                            mov r14, 1
+                            mov [r9 + r10 + State.isAccepting], r14
+                            jmp l3_loop_2_1_end
+                        end_found:
+
+                        inc r11
+                    l3_loop_2_1_end:
 
                     mov al, [rdi + rcx]
                     cmp al, ','
@@ -441,6 +462,11 @@ readDfa:
 
             ; case ln is for the nth line (Transitions)
             ln:
+                ; TODO:
+                ; loop for however many transitions were specified
+                    ; Set the corresponding Transition member variables
+                ; check if at end of file
+                    ; if not, throw error
                 
 
                 inc rbx ; increment row
@@ -485,5 +511,6 @@ readDfa:
     mov r12, [rsp + r12_data]
     mov r13, [rsp + r13_data]
     mov r15, [rsp + r15_data]
+    mov r14, [rsp + r14_data]
     leave ; Restore the base pointer
     ret   ; Return
