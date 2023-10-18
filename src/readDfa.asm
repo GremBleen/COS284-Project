@@ -255,7 +255,6 @@ readDfa:
 
         ; case l1 is for the first line (Number of states and Number of transitions)
         l1:
-
             mov rdx, [rsp + filedata]
             call getNextNumber
             mov [rsp + numStates], eax
@@ -338,9 +337,7 @@ readDfa:
         
         ; case l3 is for the third line (Accepting states)
         l3:
-            
             ; loop through until '\n'
-            
             xor r12, r12 ; Counts number of Accepting
             xor r13, r13 ; counter for second loop
 
@@ -492,6 +489,8 @@ readDfa:
                 inc rcx
 
                 mov al, [rdi + rcx]
+                cmp al, 0
+                je ln_loop_1_end
                 cmp al, 10 ; '\n'
                 jne file_error_delete
                 inc rcx
@@ -518,6 +517,17 @@ readDfa:
         jmp end
 
     file_error_delete:
+        ; deleting states
+        mov r8, [rsp + dfa]
+        mov rdi, [r8 + DFA.states]
+        call free
+        
+        ; deleting transitions
+        mov r8, [rsp + dfa]
+        mov rdi, [r8 + DFA.transitions]
+        call free
+
+        ; deleting dfa
         mov rdi, [rsp + dfa]
         call free
 
