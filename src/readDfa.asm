@@ -7,6 +7,7 @@ section .data
 
 section .text
 
+; Gets next number from text file as an integer
 getNextNumber:
     ; INPUT:
     ; rdi = rdi
@@ -196,17 +197,6 @@ readDfa:
     ; storing the filename in r12 (callee saved register)
     mov r12, rdi
 
-; So here is my idea:
-; 1. Check if the file can be openned
-;   true:
-;       2. Read the first line (states and transitions) assign these to registers
-;       3. Iterate through the second line while < states
-;       4. Go through third line and assign accepting states (may be more than 1)
-;       5. Loop while less than the transitions in the first line, adding them to the dfa
-;       6. Set the start state as 0
-;   false:
-;     return NULL
-
     ; call the open function with read permission
     mov rsi, 0 ; set the flag to 0 - read permission
     call open ; call open function
@@ -263,232 +253,268 @@ readDfa:
         mov rdi, [rsp+filedata] ; rdi -> pointer to the first bit in the file
         xor rbx, rbx ; rbx -> row counter
 
+        ; case l1 is for the first line (Number of states and Number of transitions)
+        l1:
 
-        while:
-            cmp rcx, rsi
-            jge _endwhile
-
-            cmp rbx, 0
-            je l1
-
-            cmp rbx, 1
-            je l2
-
-            cmp rbx, 2
-            je l3
-
-            jmp ln
-
-            ; case l1 is for the first line (Number of states and Number of transitions)
-            l1:
-
-                mov rdx, [rsp + filedata]
-                call getNextNumber
-                mov [rsp + numStates], eax
-                mov al, byte[rdi + rcx]
-                cmp al, 10 ; '\n'
-                je file_error
-                inc rcx ; increment rcx to get past ',' or '\n'
-                
-                mov rdx, [rsp + filedata]
-                call getNextNumber
-                mov [rsp + numTransitions], eax
-                mov al, byte[rdi + rcx]
-                cmp al, ','
-                je file_error
-                inc rcx
-
-                mov [rsp + rcx_backup1], rcx
-                mov [rsp + rsi_backup1], rsi
-                mov [rsp + rdi_backup1], rdi
-
-                xor rdi, rdi
-                xor rsi, rsi
-
-                mov edi, [rsp + numStates]
-                mov esi, [rsp + numTransitions]
-                call initDfa
-                mov [rsp + dfa], rax
-
-                inc r15 ; setting r15 to 1 indicating that if the process is aborted, need to delete dfa
-                
-                ; resetting values
-                mov rcx, [rsp + rcx_backup1]
-                mov rsi, [rsp + rsi_backup1]
-                mov rdi, [rsp + rdi_backup1]
-
-                inc rbx ; increment row
-                jmp end_switch
-
-            ; case l2 is for the second line (States)
-            l2:
-                xor r12, r12
-                xor r13, r13
-                xor rax, rax
-                mov eax, [rsp + numStates]
-                mov r13, rax
-                cmp r12, r13
-                jg file_error_delete
-
-                l2_loop_1:
-                    cmp r12, r13
-                    je l2_loop_1_end
-                    mov rdx, [rsp + filedata]
-                    call getNextNumber
-
-                    mov r8, [rsp + dfa]
-                    mov r9, [r8 + DFA.states]
-                    xor r10, r10
-                    imul r10, r12, State_size
-                    mov [r9 + r10 + State.id], eax
-
-                    inc r12
-                    mov al, byte[rdi + rcx]
-                    cmp al, 10 ; '\n'
-                    jne end_if_1
-                    if_1:
-                        cmp r12, r13
-                        jne file_error_delete
-                        jmp l2_loop_1
-                    end_if_1:
-                    inc rcx ; NOTE: Possible issue where ',\n' does not error
-                    jmp l2_loop_1
-                l2_loop_1_end:
-
-                mov al, byte[rdi + rcx]
-                cmp al, 10 ; '\n'
-                jne file_error_delete
-
-                inc rcx
-
-                inc rbx ; increment row
-                jmp end_switch
+            mov rdx, [rsp + filedata]
+            call getNextNumber
+            mov [rsp + numStates], eax
+            mov al, byte[rdi + rcx]
+            cmp al, 10 ; '\n'
+            je file_error
+            inc rcx ; increment rcx to get past ',' or '\n'
             
-            ; case l3 is for the third line (Accepting states)
-            l3:
-                
-                ; loop through until '\n'
-                
-                xor r12, r12 ; Counts number of Accepting
-                xor r13, r13 ; counter for second loop
+            mov rdx, [rsp + filedata]
+            call getNextNumber
+            mov [rsp + numTransitions], eax
+            mov al, byte[rdi + rcx]
+            cmp al, ','
+            je file_error
+            inc rcx
+
+            mov [rsp + rcx_backup1], rcx
+            mov [rsp + rsi_backup1], rsi
+            mov [rsp + rdi_backup1], rdi
+
+            xor rdi, rdi
+            xor rsi, rsi
+
+            mov edi, [rsp + numStates]
+            mov esi, [rsp + numTransitions]
+            call initDfa
+            mov [rsp + dfa], rax
+
+            inc r15 ; setting r15 to 1 indicating that if the process is aborted, need to delete dfa
+            
+            ; resetting values
+            mov rcx, [rsp + rcx_backup1]
+            mov rsi, [rsp + rsi_backup1]
+            mov rdi, [rsp + rdi_backup1]
+
+            inc rbx ; increment row
+
+        ; case l2 is for the second line (States)
+        l2:
+            xor r12, r12
+            xor r13, r13
+            xor rax, rax
+            mov eax, [rsp + numStates]
+            mov r13, rax
+            cmp r12, r13
+            jg file_error_delete
+
+            l2_loop_1:
+                cmp r12, r13
+                je l2_loop_1_end
+                mov rdx, [rsp + filedata]
+                call getNextNumber
+
+                mov r8, [rsp + dfa]
+                mov r9, [r8 + DFA.states]
+                xor r10, r10
+                imul r10, r12, State_size
+                mov [r9 + r10 + State.id], eax
+
+                inc r12
+                mov al, byte[rdi + rcx]
+                cmp al, 10 ; '\n'
+                jne end_if_1
+                if_1:
+                    cmp r12, r13
+                    jne file_error_delete
+                    jmp l2_loop_1
+                end_if_1:
+                inc rcx ; NOTE: Possible issue where ',\n' does not error
+                jmp l2_loop_1
+            l2_loop_1_end:
+
+            mov al, byte[rdi + rcx]
+            cmp al, 10 ; '\n'
+            jne file_error_delete
+
+            inc rcx
+
+            inc rbx ; increment row
+        
+        ; case l3 is for the third line (Accepting states)
+        l3:
+            
+            ; loop through until '\n'
+            
+            xor r12, r12 ; Counts number of Accepting
+            xor r13, r13 ; counter for second loop
+
+            mov rdx, [rsp + filedata]
+            mov r8, rcx
+            xor r9, r9
+
+            l3_loop_1:
+                mov al, [rdi + r8]
+                cmp al, ','
+                jne end_if_2
+                if_2:
+                    cmp r9b, ','
+                    je file_error_delete
+                    inc r12
+                    inc r8
+                    mov r9b, al
+                    jmp l3_loop_1
+                end_if_2
+                cmp al, 10 ; '\n'
+                jne end_if_3
+                if_3:
+                    cmp r9b, ','
+                    je file_error_delete
+                    inc r12
+                    inc r8
+                    mov r9b, al
+                    jmp l3_loop_1_end
+                end_if_3:
+                cmp al, '0'
+                jl file_error_delete
+                cmp al, '9'
+                jg file_error_delete
+                inc r8
+                mov r9b, al 
+                jmp l3_loop_1
+            l3_loop_1_end:
+
+            cmp r12, 0
+            je file_error_delete
+
+            cmp r12d, dword[rsp + numStates]
+            jg file_error_delete
+
+            xor r14, r14
+
+            l3_loop_2:
+                cmp r13, r12
+                jge l3_loop_2_end
 
                 mov rdx, [rsp + filedata]
-                mov r8, rcx
-                xor r9, r9
+                call getNextNumber
 
-                l3_loop_1:
-                    mov al, [rdi + r8]
-                    cmp al, ','
-                    jne end_if_2
-                    if_2:
-                        cmp r9b, ','
-                        je file_error_delete
-                        inc r12
-                        inc r8
-                        mov r9b, al
-                        jmp l3_loop_1
-                    end_if_2
-                    cmp al, 10 ; '\n'
-                    jne end_if_3
-                    if_3:
-                        cmp r9b, ','
-                        je file_error_delete
-                        inc r12
-                        inc r8
-                        mov r9b, al
-                        jmp l3_loop_1_end
-                    end_if_3:
-                    cmp al, '0'
-                    jl file_error_delete
-                    cmp al, '9'
-                    jg file_error_delete
-                    inc r8
-                    mov r9b, al 
-                    jmp l3_loop_1
-                l3_loop_1_end:
+                mov r8, [rsp + dfa]
+                mov r9, [r8 + DFA.states]
+                xor r10, r10
+                xor r11, r11 ; counter
+                
+                l3_loop_2_1:
+                    cmp r11d, dword[rsp + numStates]
+                    jge file_error_delete ; if the state was not found in dfa, jump to error
 
-                cmp r12, 0
-                je file_error_delete
+                    imul r10, r11, State_size
 
-                cmp r12d, dword[rsp + numStates]
-                jg file_error_delete
+                    mov r14d, dword[r9 + r10 + State.id]
+                    cmp eax, r14d
+                    jne end_found
+
+                    found:
+                        mov r14, 1
+                        mov byte[r9 + r10 + State.isAccepting], r14b
+                        jmp l3_loop_2_1_end
+                    end_found:
+
+                    inc r11
+                    jmp l3_loop_2_1
+                l3_loop_2_1_end:
+
+                mov al, [rdi + rcx]
+                cmp al, ','
+                jne end_if_4
+                if_4:
+                    inc rcx
+                end_if_4:
+                inc r13
+                jmp l3_loop_2
+            l3_loop_2_end:
+
+            mov al, byte[rdi + rcx]
+            cmp al, 10 ; '\n'
+            jne file_error_delete
+
+            inc rcx
+
+            inc rbx ; increment row
+
+        ; case ln is for the nth line (Transitions)
+        ln:
+            xor r12, r12 ; clearing r12
+            xor r13, r13 ; clearing r13 -> will be the transition counter
+            
+            mov r12d, dword[rsp + numTransitions] ; r12 stores number of transitions
+
+            ln_loop_1:
+                cmp r13, r12
+                jge ln_loop_1_end
 
                 xor r14, r14
+                mov r8, [rsp + dfa]
+                mov r14, [r8 + DFA.transitions]
 
-                l3_loop_2:
-                    cmp r13, r12
-                    jge l3_loop_2_end
+                mov rdx, [rsp + filedata]
+                call getNextNumber
 
-                    mov rdx, [rsp + filedata]
-                    call getNextNumber
+                xor r10, r10
+                imul r10, r13, Transition_size
+                mov dword[r14 + r10 + Transition.from], eax
 
-                    mov r8, [rsp + dfa]
-                    mov r9, [r8 + DFA.states]
-                    xor r10, r10
-                    xor r11, r11 ; counter
-                    
-                    l3_loop_2_1:
-                        cmp r11d, dword[rsp + numStates]
-                        jge file_error_delete ; if the state was not found in dfa, jump to error
-
-                        imul r10, r11, State_size
-
-                        mov r14d, dword[r9 + r10 + State.id]
-                        cmp eax, r14d
-                        jne end_found
-
-                        found:
-                            mov r14, 1
-                            mov byte[r9 + r10 + State.isAccepting], r14b
-                            jmp l3_loop_2_1_end
-                        end_found:
-
-                        inc r11
-                        jmp l3_loop_2_1
-                    l3_loop_2_1_end:
-
-                    mov al, [rdi + rcx]
-                    cmp al, ','
-                    jne end_if_4
-                    if_4:
-                        inc rcx
-                    end_if_4:
-                    inc r13
-                    jmp l3_loop_2
-                l3_loop_2_end:
-
-                mov al, byte[rdi + rcx]
-                cmp al, 10 ; '\n'
+                mov al, [rdi + rcx]
+                cmp al, ','
                 jne file_error_delete
 
-                inc rbx ; increment row
-                jmp end_switch
+                inc rcx
 
-            ; case ln is for the nth line (Transitions)
-            ln:
-                ; TODO:
-                ; loop for however many transitions were specified
-                    ; Set the corresponding Transition member variables
-                ; check if at end of file
-                    ; if not, throw error
+                mov rdx, [rdi + filedata]
+                call getNextNumber
+
+                xor r10, r10
+                imul r10, r13, Transition_size
+                mov dword[r14 + r10 + Transition.to], eax
+
+                mov al, [rdi + rcx]
+                cmp al, ','
+                jne file_error_delete
                 
+                inc rcx
 
-                inc rbx ; increment row
+                mov al, [rdi + rcx]
+                cmp al, 'a'
+                jl file_error_delete
 
-            end_switch:
-            
-            jmp while
+                cmp al, 'z'
+                jg file_error_delete
 
-        _endwhile:
+                xor r10, r10
+                imul r10, r13, Transition_size
+                mov byte[r14 + r10 + Transition.symbol], al
+
+                inc rcx
+
+                mov al, [rdi + rcx]
+                cmp al, 10 ; '\n'
+                jne file_error_delete
+                inc rcx
+
+                inc r13
+                jmp ln_loop_1
+            ln_loop_1_end:
+
+            ; Checking if at end of file
+            mov rsi, [fsize]
+            cmp rcx, rsi
+            jl file_error_delete
 
         ; cleanup - free all malloc'd data
-
         mov rdi, [rsp + filedata]
         call free
 
         ; closing the file
         mov edi, [fd]
         call close
+
+        mov rax, [rsp + dfa]
+
         jmp end
 
     file_error_delete:
