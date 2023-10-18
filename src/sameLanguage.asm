@@ -16,34 +16,39 @@ sameLanguage:
 
 ;=============================================
 ; Code we will implement:
-    
-    State* currentState1 = dfa1->startState;
-    State* currentState2 = dfa2->startState;
+    ; char* getAlphabet(dfa){
+    ;     char* input = new char*[1];
+    ;     int size = 1;
 
-    char* input = "";
+    ;     for(int i =0; i < dfa->numTransitions; i++)
+    ;     {
+    ;         char symbol = dfa->transitions[i]->symbol;
 
-    while(true)
-    {
-        input += getNextTransitionSymbol(currentState1, currentState2);
-        
-        bool dfa1IsAccepting = simulateDfa(dfa1, input);
-        bool dfa2IsAccepting = simulateDfa(dfa2, input);
+    ;         for(int j = 0; j < size; j++)
+    ;         {
+    ;             if(symbol == input[j])
+    ;             {
+    ;                 break;
+    ;             }
+    ;             else if(j == size - 1)
+    ;             {
+    ;                 char* new = new char*[size + 1];
+    ;                 for(int k = 0; k < size; k++)
+    ;                 {
+    ;                     new[k] = input[k];
+    ;                 }
+    ;                 new[size] = symbol;
+    ;                 delete input;
+    ;                 input = new;
+    ;                 size++;
+    ;                 break;
+    ;             }
+    ;         }
+    ;     }
+    ;     return input;
+    ; }
 
-        if(dfa1IsAccepting == dfa2IsAccepting)
-        {
-            return true;
-        }
-        else if(isNexttransition == null)
-        {
-            return false;
-        }
-    }
-
-    char getNextTransitionSymbol(dfa1, dfa2)
-    {
-
-    }
 
 ;=============================================
     leave ; Restore the base pointer
-    ret   ; Return
+    ret   ; Return``
