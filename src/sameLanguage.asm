@@ -1,9 +1,31 @@
-%include "constants.inc" ; Includes the constants.inc file which contains the defn for structs
-global  sameLanguage
+; %include "constants.inc" ; Includes the constants.inc file which contains the defn for structs
+global sameLanguage
 extern makeDFA
 extern reachesAccepting
 
 section .data
+
+struc State
+    .id: resd 1
+    .isAccepting: resb 1
+    align 4
+  endstruc
+
+  struc Transition
+    .from resd 1
+    .to resd 1
+    .symbol resb 1
+    align 4
+  endstruc
+
+  struc DFA
+    .states resq 1
+    .transitions resq 1
+    .numStates resd 1
+    .numTransitions resd 1
+    .startState resd 1
+    align 8
+  endstruc
 
 section .text
     ; bool sameLanguage(DFA *dfa1 , DFA *dfa2)
@@ -30,7 +52,7 @@ sameLanguage:
     mov r12, rax
 
     mov rdi, r12 ; combDFA loaded
-    mov rsi, [r12 + DFA.startState] ; combDFA->startState loaded   
+    mov rsi, [r12 + DFA.startState] ; combDFA->startState loaded
     call reachesAccepting
 
     ;return rax 

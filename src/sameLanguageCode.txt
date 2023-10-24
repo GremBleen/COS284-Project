@@ -49,7 +49,6 @@ combDFA* makeDFA(dfa1, dfa2)
             {
                 combDfa->states[count]->isAccepting = false;
             }
-            count++;
 
             for(int k = 0; k < dfa1->numTransitions; k++)
             {
@@ -69,6 +68,7 @@ combDFA* makeDFA(dfa1, dfa2)
                     }
                 }
             }
+            count++;
         }
     }
 
