@@ -1,34 +1,41 @@
 ; %include "constants.inc" ; Includes the constants.inc file which contains the defn for structs
-global sameLanguage
-extern makeDFA
-extern reachesAccepting
+global  sameLanguage
+extern  makeDFA
+extern  reachesAccepting
+extern  free
 
 section .data
+  save: db 0
 
 struc State
-    .id: resd 1
+    .id:          resd 1
     .isAccepting: resb 1
-    align 4
+    align         4
   endstruc
 
   struc Transition
-    .from resd 1
-    .to resd 1
+    .from   resd 1
+    .to     resd 1
     .symbol resb 1
-    align 4
+    align   4
   endstruc
 
   struc DFA
-    .states resq 1
-    .transitions resq 1
-    .numStates resd 1
+    .states         resq 1
+    .transitions    resq 1
+    .numStates      resd 1
     .numTransitions resd 1
-    .startState resd 1
-    align 8
+    .startState     resd 1
+    align           8
   endstruc
 
 section .text
     ; bool sameLanguage(DFA *dfa1 , DFA *dfa2)
+    ; bool sameLanguage(DFA *dfa1 , DFA *dfa2)
+    ; {
+    ;     DFA* combDFA = makeDFA(dfa1,dfa2);
+    ;     return reachesAccepting(combDFA, combDFA->startState);
+    ; }
 
     ; Input registers:
     ; rdi = dfa1
@@ -41,23 +48,38 @@ sameLanguage:
 
 ;=============================================
 ; Code we will implement:
-
-; bool sameLanguage(DFA *dfa1 , DFA *dfa2)
-; {
-;     DFA* combDFA = makeDFA(dfa1,dfa2);
-
-;     return reachesAccepting(combDFA, combDFA->startState);
-; }
     call makeDFA
     mov r12, rax
 
-    mov rdi, r12 ; combDFA loaded
-    mov rsi, [r12 + DFA.startState] ; combDFA->startState loaded
+    mov  rdi, r12                    ; combDFA loaded
+    mov  rsi, [r12 + DFA.startState] ; combDFA->startState loaded
     call reachesAccepting
 
-    ;return rax 
+    cmp al, 1             ; if an accept is reachable return false as they not same language
+    jne sameLanguage_true
+
+    sameLanguage_false:
+        mov eax, 0           ; return false
+        jmp end_sameLanguage
+
+    sameLanguage_true:
+        mov eax, 1 ; return true
+      
+    end_sameLanguage:
+      
+    mov [save], eax
+
+    mov r8, [r12 + DFA.states]
+    mov r9, [r12 + DFA.transitions]
+    
+    mov  rdi, r12
+    call free
+
+    mov eax, [save]
+
+    ;return rax
 
 ;=============================================
-    pop r12
-    leave ; Restore the base pointer
-    ret   ; Return``
+    pop   r12
+    leave     ; Restore the base pointer
+    ret       ; Return``

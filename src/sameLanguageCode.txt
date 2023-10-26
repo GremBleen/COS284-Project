@@ -7,23 +7,7 @@ bool sameLanguage(DFA *dfa1 , DFA *dfa2)
 
 bool reachesAccepting(dfa, int id)
 {
-    for(int i = 0; i < dfa->numTransitions; i++)
-    {
-        if(id == dfa->transitions[i]->from)
-        {
-            int to = dfa->transitions[i]->to;
-            if(dfa->states[to]->isAccepting)
-            {
-                return true;
-            }
-            else
-            {
-                if(reachesAccepting(dfa, i))
-    ;               {
-    ;              return true;}
-            }
-        }
-    }
+    
 }
 
 combDFA* makeDFA(dfa1, dfa2)
