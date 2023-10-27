@@ -4,10 +4,16 @@ global reachesAccepting
 section .data
     state: dd 0
     toId: dd 0
+    numCalls: dd 0
 
 section .text
-    ; bool reachesAccepting(DFA *dfa, int state)
+    ; bool reachesAccepting(DFA *dfa, int state, numCalls)
     ; {
+    ;     if(dfa->states[state]->isAccepting)
+    ;     {
+    ;         return true
+    ;     }
+
     ;     for(int i = 0; i < dfa->numTransitions; i++)
     ;     {
     ;     if(id == dfa->transitions[i]->from)
@@ -19,9 +25,13 @@ section .text
     ;         }
     ;         else
     ;         {
-    ;             if(reachesAccepting(dfa, i))
+    ;             if(if numCalls < dfa->numtransitions))
     ;               {
-    ;              return true;}
+    ;                 if(reachesAccepting(dfa, to, numCalls + 1))
+    ;                    {
+    ;                     return true;
+    ;                   }
+    ;                 }
     ;         }
     ;     }
     ; }
@@ -30,6 +40,7 @@ section .text
     ; Input registers:
     ; rdi = dfa
     ; rsi = state
+    ; rdx = numCalls
     
 reachesAccepting:
     push rbp      ; Save the base pointer
@@ -39,37 +50,63 @@ reachesAccepting:
 ;=============================================
     mov r12, rdi
     mov [state], rsi
+    mov [numCalls], rdx
+
+    imul ebx, [state], State_size ; edx = state * State_size
+    mov rax, [r12 + DFA.states]
+    lea r8, [rax + rbx]
+    cmp byte [r8 + State.isAccepting], 1 ; [rbx + State.isAccepting] = dfa->states[state]->isAccepting
+    je for_loop.accepting
+    
     xor ecx, ecx ; i = 0
     cmp ecx, [r12 + DFA.numTransitions]
     for_loop:
         ;if(id == dfa->transitions[i]->from)
-        mov eax, [state] ; eax = id
-        imul edx, ecx, Transition_size ; edx = i * Transition_size
-        cmp eax, [r12 + DFA.transitions + rdx + Transition.from] ; eax = id, [r12 + DFA.transitions + rdx + Transition.from] = dfa->transitions[i]->from
-        jne .mismatchID
+        imul ebx, ecx, Transition_size ; ebx = i * Transition_size
+        mov rax, [r12 + DFA.transitions] ; rax = dfa->transitions
+        lea r8, [rax + rbx] ; r8 = dfa->transitions[i]
+        mov eax, [state]
+        cmp eax, [r8 + Transition.from]
+        jne .mismatchID 
 
         ;int toId = dfa->transitions[i]->to;    
-        mov eax, [r12 + DFA.transitions + rdx + Transition.to]
-        mov [toId], eax ; toId = dfa->transitions[i]->to
+        mov eax, [r8 + Transition.to] ; eax = dfa->transitions[i]->to
+        mov [toId], eax
 
         ;if(dfa->states[toId]->isAccepting)
-        mov eax, [toId] ; eax = toId 
-        imul edx, eax, State_size ; edx = toId * State_size
-        cmp byte [r12 + DFA.states + rdx + State.isAccepting], 1 ; [r12 + DFA.states + rdx + State.isAccepting] = dfa->states[toId]->isAccepting
-        je .notAccepting
+        imul ebx, eax, State_size ; ebx = toId * State_size
+        mov rax, [r12 + DFA.states] ; rax = dfa->states
+        lea r9, [rax + rbx] ; r9 = dfa->states[toId]
 
-        ;return true
-        .accepting:
-            mov eax, 1
-            jmp end
+        xor eax, eax ; eax = 0
+        mov al, byte [r9 + State.isAccepting] ; al = dfa->states[toID]->isAccepting
+        cmp al, 1
+        je .accepting
+
+        ;if (numCalls < dfa->numtransitions)
+        mov eax, [numCalls]
+        mov ebx, 1000
+        ; mov ebx, [r12 + DFA.numTransitions]
+        ; imul ebx, [r12 + DFA.numTransitions]
+        cmp eax, ebx
+        jge end_for_loop
 
         ;else if( reachesAccepting(dfa, toId) )
         .notAccepting:
             mov rdi, r12 ; dfa
             mov rsi, [toId] ; toId
+            mov edx, [numCalls]
+            inc edx ; numCalls++
+            mov [numCalls], edx
+
             call reachesAccepting
-            cmp byte [rax], 1
+            cmp al, 1
             je end
+
+        ;return true
+        .accepting:
+            mov eax, 1
+            jmp end
 
         .mismatchID:
         inc ecx ; i++

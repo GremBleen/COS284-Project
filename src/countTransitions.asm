@@ -60,6 +60,7 @@ countTransitions:
     mov eax, [r13 + DFA.numStates]
     mov [dfa2NumStates], eax
     mov eax, [r13 + DFA.numTransitions]
+    mov [dfa2NumTransitions], eax
 
     xor ecx, ecx ; i = 0
     cmp ecx, [dfa1NumStates] ; i < dfa1->numStates
@@ -68,7 +69,8 @@ countTransitions:
     .loop1:
         ; State* s1 = dfa1->states[i];
         imul ebx, ecx, State_size ; ebx = i * State_size
-        lea r8, [r12 + DFA.states + rbx] ; r8 = &dfa1->states[i]
+        mov rax, [r12 + DFA.states]
+        lea r8, [rax + rbx] ; r8 = &dfa1->states[i]
         
         xor edx, edx ; j = 0
         cmp edx, [dfa2NumStates] ; j < dfa2->numStates
@@ -77,7 +79,8 @@ countTransitions:
         .loop2:
             ; State* s2 = dfa2->states[j];
             imul ebx, edx, State_size ; ebx = j * State_size
-            lea r9, [r13 + DFA.states + rbx] ; r9 = &dfa2->states[j]
+            mov rax, [r13 + DFA.states]
+            lea r9, [rax + rbx] ; r9 = &dfa2->states[j]
 
             mov [iSave], ecx ; save i
             mov [jSave], edx ; save j
@@ -89,7 +92,8 @@ countTransitions:
             .loop3:
                 ; Transition* t1 = dfa1->transitions[k];
                 imul ebx, ecx, Transition_size ; ebx = k * Transition_size
-                lea r10, [r12 + DFA.transitions + rbx] ; r10 = &dfa1->transitions[k]
+                mov rax, [r12 + DFA.transitions]
+                lea r10, [rax + rbx] ; r10 = &dfa1->transitions[k]
 
                 xor edx, edx ; l = 0
                 cmp edx, [dfa2NumTransitions] ; l < dfa2->numTransitions
@@ -98,25 +102,30 @@ countTransitions:
                 .loop4:
                     ; Transition* t2 = dfa2->transitions[l];
                     imul ebx, edx, Transition_size ; ebx = l * Transition_size
-                    lea r11, [r13 + DFA.transitions + rbx] ; r11 = &dfa2->transitions[l]
+                    mov rax, [r13 + DFA.transitions]
+                    lea r11, [rax + rbx] ; r11 = &dfa2->transitions[l]
 
                     ; if(t1->from == state1->id && t2->from == state2->id)
                     mov eax, [r10 + Transition.from] ; eax = t1->from
                     cmp eax, [r8 + State.id] ; cmp t1->from, s1->id
-                    jne .endLoop4
+                    jne .failedCMP
                     mov eax, [r11 + Transition.from] ; eax = t2->from
                     cmp eax, [r9 + State.id] ; cmp t2->from, s2->id
-                    jne .endLoop4
+                    jne .failedCMP
 
                     ;if (t1->symbol == t2->symbol)
+                    xor eax, eax ; eax = 0
+                    xor ebx, ebx ; ebx = 0
                     mov al, [r10 + Transition.symbol] ; al = t1->symbol
                     mov bl, [r11 + Transition.symbol] ; bl = t2->symbol
                     cmp al, bl ; cmp t1->symbol, t2->symbol
-                    jne .endLoop4 
+                    jne .failedCMP
+
                     mov eax, [numTrans]
                     inc eax
                     mov [numTrans], eax ; Trans++
 
+                    .failedCMP:
                     inc edx ; l++
                     cmp edx, [dfa2NumTransitions] ; l < dfa2->numTransitions
                     jl .loop4
@@ -140,7 +149,19 @@ countTransitions:
         jl .loop1
     .endLoop1:
 
+    mov eax, [dfa1NumTransitions]
+    mov ebx, [dfa2NumTransitions]
+    imul ebx, eax
     mov eax, [numTrans]
+    cmp eax, ebx
+    jg tooMany
+
+    jmp end
+
+    tooMany:
+        mov eax, ebx
+
+    end:
 
     ;return rax
 ;=============================================
