@@ -79,13 +79,16 @@ reachesAccepting:
         lea r9, [rax + rbx] ; r9 = dfa->states[toId]
 
         xor eax, eax ; eax = 0
-        mov al, [r9 + State.isAccepting] ; al = dfa->states[toID]->isAccepting
+        mov al, byte [r9 + State.isAccepting] ; al = dfa->states[toID]->isAccepting
         cmp al, 1
         je .accepting
 
         ;if (numCalls < dfa->numtransitions)
         mov eax, [numCalls]
-        cmp eax, [r12 + DFA.numTransitions]
+        mov ebx, 1000
+        ; mov ebx, [r12 + DFA.numTransitions]
+        ; imul ebx, [r12 + DFA.numTransitions]
+        cmp eax, ebx
         jge end_for_loop
 
         ;else if( reachesAccepting(dfa, toId) )
@@ -94,6 +97,7 @@ reachesAccepting:
             mov rsi, [toId] ; toId
             mov edx, [numCalls]
             inc edx ; numCalls++
+            mov [numCalls], edx
 
             call reachesAccepting
             cmp al, 1

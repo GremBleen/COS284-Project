@@ -34,6 +34,16 @@ makeDFA:
 ;=============================================
     mov r12, rdi
     mov r13, rsi
+
+    xor eax, eax ; eax = 0
+    mov [statesCount], eax
+    mov [transCount], eax
+
+    mov r8, [r12 + DFA.states]
+    mov r9, [r13 + DFA.states]
+    mov r10, [r12 + DFA.transitions]
+    mov r11, [r13 + DFA.transitions]
+
     ; int newNumStates = dfa1->numStates * dfa2->numStates;
     mov eax, [r12 + DFA.numStates] ; eax = dfa1->numStates
     mov ebx, [r13 + DFA.numStates] ; ebx = dfa2->numStates
@@ -44,7 +54,7 @@ makeDFA:
     mov rsi, r13
     call countTransitions
     mov [newNumTransitions], eax ; newNumTransitions = countTransitions(dfa1, dfa2)
-    
+
     ; Save nums
     mov eax, [r12 + DFA.numStates]
     mov [dfa1NumStates], eax
@@ -153,12 +163,14 @@ makeDFA:
                     cmp al, bl ; cmp t1->symbol, t2->symbol
                     jne .failedCMP
 
-                    ;combDFA->transitions[transCount]->from = statesCount;
+                    ;combDFA->transitions[transCount]->from = (dfa1->numStates * i) + j;
                     mov eax, [transCount] ; eax = statesCount
                     imul ebx, eax, Transition_size ; ebx = statesCount * Transition_size
                     mov rax, [r14 + DFA.transitions]
                     lea r11, [rax + rbx] ; r11 = &combDFA->transitions[transCount]
-                    mov eax, [statesCount]
+                    mov eax, [dfa2NumStates] ; eax = dfa1->numStates
+                    imul eax, [iSave] ; eax = dfa2->numStates * i
+                    add eax, [jSave]
                     mov [r11 + Transition.from], eax ; combDFA->transitions[transCount]->from = statesCount
 
                     ;comDFA->transitions[transCount]->symbol = t1->symbol;
